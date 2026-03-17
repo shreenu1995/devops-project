@@ -12,7 +12,7 @@ pipeline {
         // Stage 1
         stage('Git Clone') {
             steps {
-                git 'https://github.com/shreenu1995/devops-project.git'
+                git branch: 'main', url: 'https://github.com/shreenu1995/devops-project.git'
             }
         }
 
