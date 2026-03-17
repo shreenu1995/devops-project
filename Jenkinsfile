@@ -95,14 +95,5 @@ pipeline {
             }
         }
 
-       # // Stage 9
-       # stage('Destroy Infra') {
-       #     steps {
-       #         sh '''
-       #         cd terraform
-       #         terraform destroy -auto-approve
-       #         '''
-       #    }
-       # }
     }
 }
