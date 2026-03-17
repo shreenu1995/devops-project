@@ -76,6 +76,7 @@ pipeline {
         	# Deploy on Kubernetes master
         	ansible k8s_master -a "kubectl apply -f /home/ubuntu/redis.yml" -b
         	ansible k8s_master -a "kubectl apply -f /home/ubuntu/python.yml" -b   
+                ansible k8s_master -a "kubectl apply -f /home/ubuntu/python-service.yml" -b
                 '''
             }
         }

@@ -1,7 +1,16 @@
+# =========================
+# COMMON SETUP (ALL NODES)
+# =========================
 - hosts: all
   become: yes
 
   tasks:
+
+    # Disable swap (REQUIRED for Kubernetes)
+    - name: Disable swap
+      shell: |
+        swapoff -a
+        sed -i '/ swap / s/^/#/' /etc/fstab
 
     # -----------------------------
     # Install Docker
@@ -11,6 +20,12 @@
         name: docker.io
         state: present
         update_cache: yes
+
+    - name: Enable Docker
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
 
     # -----------------------------
     # Install required dependencies
@@ -31,17 +46,20 @@
       shell: |
         curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | \
         gpg --yes --dearmor -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
+      args:
+        creates: /usr/share/keyrings/kubernetes-archive-keyring.gpg
 
     # -----------------------------
     # Add Kubernetes repository
     # -----------------------------
     - name: Add Kubernetes repo
-      shell: |
-        echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] \
-        https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
+      copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        content: |
+          deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /
 
     # -----------------------------
-    # Update apt after repo added
+    # Update apt
     # -----------------------------
     - name: Update apt cache
       apt:
@@ -52,15 +70,79 @@
     # -----------------------------
     - name: Install kubeadm, kubelet, kubectl
       apt:
-        name: "{{ item }}"
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
         state: present
-      loop:
-        - kubeadm
-        - kubelet
-        - kubectl
 
     # -----------------------------
-    # Hold packages (avoid auto upgrade)
+    # Hold packages
     # -----------------------------
     - name: Hold Kubernetes packages
       shell: apt-mark hold kubelet kubeadm kubectl
+
+
+# =========================
+# MASTER NODE SETUP
+# =========================
+- hosts: k8s_master
+  become: yes
+
+  tasks:
+
+    # Initialize cluster
+    - name: Initialize Kubernetes Master
+      shell: kubeadm init --pod-network-cidr=192.168.0.0/16
+      args:
+        creates: /etc/kubernetes/admin.conf
+
+    # Setup kubeconfig
+    - name: Create kube directory
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Copy kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+
+    # Install network plugin
+    - name: Install Calico network
+      become_user: ubuntu
+      shell: |
+        kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+
+    # Generate join command
+    - name: Get join command
+      shell: kubeadm token create --print-join-command
+      register: join_command
+
+    - name: Save join command
+      copy:
+        content: "{{ join_command.stdout }}"
+        dest: /tmp/join-command.sh
+
+
+# =========================
+# WORKER NODE JOIN
+# =========================
+- hosts: k8s_workers
+  become: yes
+
+  tasks:
+
+    - name: Copy join command from master
+      fetch:
+        src: /tmp/join-command.sh
+        dest: /tmp/join-command.sh
+        flat: yes
+
+    - name: Join Kubernetes cluster
+      shell: sh /tmp/join-command.sh
