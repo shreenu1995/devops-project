@@ -56,7 +56,10 @@ pipeline {
         // Stage 5
         stage('Test Cluster') {
             steps {
-                sh 'kubectl get nodes || true'
+                sh '''
+                cd ansible
+                ansible k8s_master -a "kubectl get nodes" -b
+                '''
             }
         }
 
@@ -64,8 +67,15 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 sh '''
-                kubectl apply -f k8s/redis.yml
-                kubectl apply -f k8s/python.yml
+                cd ansible
+
+        	# Copy YAML files to master node
+        	ansible k8s_master -m copy -a "src=../k8s/redis.yml dest=/home/ubuntu/redis.yml"
+     		ansible k8s_master -m copy -a "src=../k8s/python.yml dest=/home/ubuntu/python.yml"
+
+        	# Deploy on Kubernetes master
+        	ansible k8s_master -a "kubectl apply -f /home/ubuntu/redis.yml" -b
+        	ansible k8s_master -a "kubectl apply -f /home/ubuntu/python.yml" -b   
                 '''
             }
         }
