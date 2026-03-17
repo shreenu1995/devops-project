@@ -1,6 +1,2 @@
 [k8s-master]
-<IP1>
-
 [k8s-workers]
-<IP2>
-<IP3>
