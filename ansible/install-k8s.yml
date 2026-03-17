@@ -140,9 +140,17 @@
         owner: ubuntu
         group: ubuntu
 
+    - name: Wait for Kubernetes API
+      become_user: ubuntu
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
+      shell: |
+        until kubectl get nodes; do sleep 10; done
     # Install network plugin
     - name: Install Calico network
       become_user: ubuntu
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
       shell: |
         kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
 
