@@ -47,7 +47,8 @@ pipeline {
         stage('Deploy Kubernetes Cluster') {
             steps {
                 sh '''
-                ansible-playbook ansible/install-k8s.yml -i ansible/inventory
+                cd $ANSIBLE_DIR
+                ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook install-k8s.yml
                 '''
             }
         }
