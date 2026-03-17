@@ -33,10 +33,10 @@ pipeline {
             steps {
                 sh '''
                 cd $ANSIBLE_DIR
-                echo "[k8s-master]" > inventory
+                echo "[k8s_master]" > inventory
                 jq -r '.public_ips.value[0]' ../ips.json >> inventory
 
-                echo "[k8s-workers]" >> inventory
+                echo "[k8s_workers]" >> inventory
                 jq -r '.public_ips.value[1]' ../ips.json >> inventory
                 jq -r '.public_ips.value[2]' ../ips.json >> inventory
                 '''
@@ -58,7 +58,7 @@ pipeline {
             steps {
                 sh '''
                 cd ansible
-                ansible k8s_master -a "kubectl get nodes" -b
+                ansible k8s_master -i ansible/inventory -a "kubectl get nodes" -b
                 '''
             }
         }
@@ -70,13 +70,13 @@ pipeline {
                 cd ansible
 
         	# Copy YAML files to master node
-        	ansible k8s_master -m copy -a "src=../k8s/redis.yml dest=/home/ubuntu/redis.yml"
-     		ansible k8s_master -m copy -a "src=../k8s/python.yml dest=/home/ubuntu/python.yml"
+        	ansible k8s_master -i ansible/inventory -m copy -a "src=../k8s/redis.yml dest=/home/ubuntu/redis.yml"
+     		ansible k8s_master -i ansible/inventory -m copy -a "src=../k8s/python.yml dest=/home/ubuntu/python.yml"
 
         	# Deploy on Kubernetes master
-        	ansible k8s_master -a "kubectl apply -f /home/ubuntu/redis.yml" -b
-        	ansible k8s_master -a "kubectl apply -f /home/ubuntu/python.yml" -b   
-                ansible k8s_master -a "kubectl apply -f /home/ubuntu/python-service.yml" -b
+        	ansible k8s_master -i ansible/inventory -a "kubectl apply -f /home/ubuntu/redis.yml" -b
+        	ansible k8s_master -i ansible/inventory -a "kubectl apply -f /home/ubuntu/python.yml" -b   
+                ansible k8s_master -i ansible/inventory -a "kubectl apply -f /home/ubuntu/python-service.yml" -b
                 '''
             }
         }
