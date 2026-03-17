@@ -2,12 +2,54 @@
   become: yes
 
   tasks:
+
+    # -----------------------------
+    # Install Docker
+    # -----------------------------
     - name: Install Docker
       apt:
         name: docker.io
         state: present
         update_cache: yes
 
+    # -----------------------------
+    # Install required dependencies
+    # -----------------------------
+    - name: Install dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+
+    # -----------------------------
+    # Add Kubernetes GPG key
+    # -----------------------------
+    - name: Add Kubernetes GPG key
+      shell: |
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | \
+        gpg --dearmor -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
+
+    # -----------------------------
+    # Add Kubernetes repository
+    # -----------------------------
+    - name: Add Kubernetes repo
+      shell: |
+        echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] \
+        https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
+
+    # -----------------------------
+    # Update apt after repo added
+    # -----------------------------
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    # -----------------------------
+    # Install Kubernetes components
+    # -----------------------------
     - name: Install kubeadm, kubelet, kubectl
       apt:
         name: "{{ item }}"
@@ -16,3 +58,9 @@
         - kubeadm
         - kubelet
         - kubectl
+
+    # -----------------------------
+    # Hold packages (avoid auto upgrade)
+    # -----------------------------
+    - name: Hold Kubernetes packages
+      shell: apt-mark hold kubelet kubeadm kubectl
