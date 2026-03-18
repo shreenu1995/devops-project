@@ -6,27 +6,54 @@
 
   tasks:
 
-    # Disable swap (REQUIRED for Kubernetes)
+    # Disable swap (REQUIRED)
     - name: Disable swap
       shell: |
         swapoff -a
         sed -i '/ swap / s/^/#/' /etc/fstab
 
     # -----------------------------
+    # Install dependencies
+    # -----------------------------
+    - name: Install dependencies
+      yum:
+        name:
+          - curl
+          - yum-utils
+          - device-mapper-persistent-data
+          - lvm2
+        state: present
+
+    # -----------------------------
     # Install Docker
     # -----------------------------
     - name: Install Docker
-      apt:
-        name: docker.io
+      yum:
+        name: docker
         state: present
-        update_cache: yes
 
-    - name: Enable Docker
+    - name: Configure Docker cgroup driver
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "exec-opts": ["native.cgroupdriver=systemd"]
+          }
+
+    - name: Enable and start Docker
       systemd:
         name: docker
         enabled: yes
         state: started
-        # -----------------------------
+
+    # -----------------------------
+    # Disable SELinux (IMPORTANT)
+    # -----------------------------
+    - name: Disable SELinux
+      selinux:
+        state: permissive
+
+    # -----------------------------
     # Enable kernel modules
     # -----------------------------
     - name: Load br_netfilter module
@@ -34,16 +61,16 @@
         name: br_netfilter
         state: present
 
-    - name: Ensure br_netfilter loads on boot
+    - name: Ensure module loads on boot
       copy:
         dest: /etc/modules-load.d/k8s.conf
         content: |
           br_netfilter
 
     # -----------------------------
-    # Set sysctl params
+    # Sysctl settings
     # -----------------------------
-    - name: Configure sysctl for Kubernetes
+    - name: Configure sysctl
       copy:
         dest: /etc/sysctl.d/k8s.conf
         content: |
@@ -51,63 +78,40 @@
           net.bridge.bridge-nf-call-ip6tables = 1
           net.ipv4.ip_forward = 1
 
-    - name: Apply sysctl settings
+    - name: Apply sysctl
       command: sysctl --system
 
     # -----------------------------
-    # Install required dependencies
-    # -----------------------------
-    - name: Install dependencies
-      apt:
-        name:
-          - apt-transport-https
-          - ca-certificates
-          - curl
-          - gnupg
-        state: present
-
-    # -----------------------------
-    # Add Kubernetes GPG key
-    # -----------------------------
-    - name: Add Kubernetes GPG key
-      shell: |
-        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | \
-        gpg --yes --dearmor -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
-      args:
-        creates: /usr/share/keyrings/kubernetes-archive-keyring.gpg
-
-    # -----------------------------
-    # Add Kubernetes repository
+    # Add Kubernetes repo
     # -----------------------------
     - name: Add Kubernetes repo
       copy:
-        dest: /etc/apt/sources.list.d/kubernetes.list
+        dest: /etc/yum.repos.d/kubernetes.repo
         content: |
-          deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /
-
-    # -----------------------------
-    # Update apt
-    # -----------------------------
-    - name: Update apt cache
-      apt:
-        update_cache: yes
+          [kubernetes]
+          name=Kubernetes
+          baseurl=https://pkgs.k8s.io/core:/stable:/v1.28/rpm/
+          enabled=1
+          gpgcheck=1
+          repo_gpgcheck=1
+          gpgkey=https://pkgs.k8s.io/core:/stable:/v1.28/rpm/repodata/repomd.xml.key
 
     # -----------------------------
     # Install Kubernetes components
     # -----------------------------
-    - name: Install kubeadm, kubelet, kubectl
-      apt:
+    - name: Install kubelet, kubeadm, kubectl
+      yum:
         name:
           - kubelet
           - kubeadm
           - kubectl
         state: present
 
-    # -----------------------------
-    # Hold packages
-    # -----------------------------
-    - name: Hold Kubernetes packages
-      shell: apt-mark hold kubelet kubeadm kubectl
+    - name: Enable kubelet
+      systemd:
+        name: kubelet
+        enabled: yes
+        state: started
 
 
 # =========================
@@ -127,40 +131,43 @@
     # Setup kubeconfig
     - name: Create kube directory
       file:
-        path: /home/ubuntu/.kube
+        path: /home/ec2-user/.kube
         state: directory
-        owner: ubuntu
-        group: ubuntu
+        owner: ec2-user
+        group: ec2-user
 
     - name: Copy kube config
       copy:
         src: /etc/kubernetes/admin.conf
-        dest: /home/ubuntu/.kube/config
+        dest: /home/ec2-user/.kube/config
         remote_src: yes
-        owner: ubuntu
-        group: ubuntu
+        owner: ec2-user
+        group: ec2-user
 
+    # Wait for cluster
     - name: Wait for Kubernetes API
-      become_user: ubuntu
+      become_user: ec2-user
       environment:
-        KUBECONFIG: /home/ubuntu/.kube/config
+        KUBECONFIG: /home/ec2-user/.kube/config
       shell: |
         until kubectl get nodes; do sleep 10; done
-    # Install network plugin
+
+    # Install Calico
     - name: Install Calico network
-      become_user: ubuntu
+      become_user: ec2-user
       environment:
-        KUBECONFIG: /home/ubuntu/.kube/config
+        KUBECONFIG: /home/ec2-user/.kube/config
       shell: |
         kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
 
+    # Get join command
     - name: Get join command
       shell: kubeadm token create --print-join-command
       register: join_command
 
-    - name: Set join command fact
+    - name: Save join command
       set_fact:
-        kube_join_command: "{{ join_command.stdout }}" 
+        kube_join_command: "{{ join_command.stdout }}"
 
 
 # =========================
