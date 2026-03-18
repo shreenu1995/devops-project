@@ -4,8 +4,8 @@ provider "aws" {
 
 resource "aws_instance" "k8s_nodes" {
   count         = 3
-  ami           = "ami-0f5ee92e2d63afc18"
-  instance_type = "t3.small"
+  ami           = "ami-0f559c3642608c138"
+  instance_type = "t2.medium"
   key_name      = "jenkins"
 
   tags = {
