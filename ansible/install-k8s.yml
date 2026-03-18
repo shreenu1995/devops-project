@@ -61,7 +61,7 @@
     # -----------------------------
     - name: Disable SELinux
       selinux:
-        state: permissive
+        state: disabled
 
     # -----------------------------
     # Enable kernel modules
