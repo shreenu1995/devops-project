@@ -98,12 +98,12 @@ pipeline {
                 archiveArtifacts artifacts: 'output.txt'
             }
         }
-        // Stage 9
+   /*     // Stage 9
         stage('Destroy Infra') {
             steps {
                 sh 'cd terraform && terraform destroy -auto-approve'
             }
-        }
+        } */
 
     }
 }
