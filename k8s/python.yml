@@ -14,4 +14,4 @@ spec:
     spec:
       containers:
       - name: python
-        image: python:3.9
+        image: tiangolo/uwsgi-nginx-flask:python3.8
