@@ -33,29 +33,28 @@
           - device-mapper-persistent-data
           - lvm2
         state: present
-
-    # -----------------------------
-    # Install Docker
-    # -----------------------------
-    - name: Install Docker
+    - name: Install containerd
       yum:
-        name: docker
-        state: present
+       name: containerd
+       state: present
 
-    - name: Configure Docker cgroup driver
-      copy:
-        dest: /etc/docker/daemon.json
-        content: |
-          {
-            "exec-opts": ["native.cgroupdriver=systemd"]
-          }
+    - name: Create containerd config
+      shell: |
+        mkdir -p /etc/containerd
+        containerd config default > /etc/containerd/config.toml
 
-    - name: Enable and start Docker
+    - name: Enable SystemdCgroup
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+
+    - name: Restart containerd
       systemd:
-        name: docker
-        enabled: yes
-        state: started
-
+         name: containerd
+         state: restarted
+         enabled: yes
+   
     # -----------------------------
     # Disable SELinux (IMPORTANT)
     # -----------------------------
