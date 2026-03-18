@@ -58,7 +58,7 @@ pipeline {
             steps {
                 sh '''
                 cd ansible
-                ansible k8s_master -i inventory -a "kubectl get nodes" -b
+                ansible k8s_master -i inventory -a "kubectl get nodes" -u ec2-user
                 '''
             }
         }
@@ -70,14 +70,14 @@ pipeline {
                 cd ansible
 
         	# Copy YAML files to master node
-        	ansible k8s_master -i inventory -m copy -a "src=../k8s/redis.yml dest=/home/ec2-user"
-     		ansible k8s_master -i inventory -m copy -a "src=../k8s/python.yml dest=/home/ec2-user"
+        	ansible k8s_master -i inventory -m copy -a "src=../k8s/redis.yml dest=/home/ec2-user/redis.yml"
+     		ansible k8s_master -i inventory -m copy -a "src=../k8s/python.yml dest=/home/ec2-user/python.yml"
             ansible k8s_master -i inventory -m copy -a "src=../k8s/python-service.yml dest=/home/ec2-user"
 
         	# Deploy on Kubernetes master
-        	ansible k8s_master -i inventory -a "kubectl apply -f /home/ec2-user/redis.yml" -b
-        	ansible k8s_master -i inventory -a "kubectl apply -f /home/ec2-user/python.yml" -b   
-            ansible k8s_master -i inventory -a "kubectl apply -f /home/ec2-user/python-service.yml" -b
+        	ansible k8s_master -i inventory -a "kubectl apply -f /home/ec2-user/redis.yml" -u ec2-user
+        	ansible k8s_master -i inventory -a "kubectl apply -f /home/ec2-user/python.yml" -u ec2-user   
+            ansible k8s_master -i inventory -a "kubectl apply -f /home/ec2-user/python-service.yml" -u ec2-user
             '''
             }
         }
